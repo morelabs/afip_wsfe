@@ -13,7 +13,9 @@ module AfipWsfe
   class NullOrInvalidAttribute < StandardError; end
 
   autoload :Constants,            'afip_wsfe/constants'
+  autoload :Authorizer,           'afip_wsfe/authorizer'
   autoload :AuthData,             'afip_wsfe/auth_data'
+  autoload :Bill,                 'afip_wsfe/bill'
   autoload :Wsaa,                 'afip_wsfe/wsaa'
 
   extend self
