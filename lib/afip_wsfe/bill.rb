@@ -3,11 +3,12 @@ module AfipWsfe
     attr_reader :client, :base_imp, :total
     attr_accessor :net, :doc_num, :iva_cond, :documento, :concepto, :moneda,
                   :due_date, :fch_serv_desde, :fch_serv_hasta, :fch_emision,
-                  :body, :response, :ivas
+                  :body, :response, :ivas, :nro_comprobante
 
     def initialize(attrs = {})
       AfipWsfe.environment ||= :test
       AfipWsfe::AuthData.fetch
+
       @client = Savon.client(
         wsdl:  AfipWsfe::URLS[AfipWsfe.environment][:wsfe],
         namespaces: {
@@ -37,8 +38,7 @@ module AfipWsfe
     end
 
     def cbte_type
-      AfipWsfe::BILL_TYPE[AfipWsfe.own_iva_cond][iva_cond] ||
-        raise(NullOrInvalidAttribute.new, "Please choose a valid document type.")
+      AfipWsfe::BILL_TYPE[AfipWsfe.own_iva_cond][iva_cond] || raise(NullOrInvalidAttribute.new, "Please choose a valid document type.")
     end
 
     def exchange_rate
@@ -70,11 +70,9 @@ module AfipWsfe
     end
 
     def setup_bill
-      if fch_emision then
-        fecha_emision = fch_emision.strftime('%Y%m%d')
-      else
-        fecha_emision = Time.new.strftime('%Y%m%d') #today
-      end
+      fecha_emision = (fch_emision || Time.zone.today).strftime('%Y%m%d')
+
+      comp_numero = nro_comprobante || next_bill_number
 
       array_ivas = Array.new
       self.ivas.each{ |i|
@@ -89,6 +87,8 @@ module AfipWsfe
           "FeCabReq" => AfipWsfe::Bill.header(cbte_type),
           "FeDetReq" => {
             "FECAEDetRequest" => {
+              "CbteDesde"   => comp_numero,
+              "CbteHasta"   => comp_numero,
               "Concepto"    => AfipWsfe::CONCEPTOS[concepto],
               "DocTipo"     => AfipWsfe::DOCUMENTOS[documento],
               "DocNro"      => doc_num,
@@ -113,8 +113,6 @@ module AfipWsfe
         detail["ImpTotal"]  = total.to_f.round(2)
         detail["Iva"]       = { "AlicIva" => array_ivas }
       end
-      
-      detail["CbteDesde"] = detail["CbteHasta"] = next_bill_number
 
       unless concepto == "Productos" # En "Productos" ("01"), si se mandan estos parámetros la afip rechaza.
         detail.merge!({"FchServDesde" => fch_serv_desde || today,
@@ -147,13 +145,9 @@ module AfipWsfe
     end
 
     def setup_response(response)
-      # TODO: turn this into an all-purpose Response class
-
       result = response[:fecae_solicitar_response][:fecae_solicitar_result]
           
       if not result[:fe_det_resp] or not result[:fe_cab_resp] then 
-        # Si no obtuvo respuesta ni cabecera ni detalle, evito hacer '[]' sobre algo indefinido.                        
-        # Ejemplo: Error con el token-sign de WSAA
           datos = {
             errores:       result[:errors],
             header_result: {resultado: "X"},
@@ -169,9 +163,7 @@ module AfipWsfe
       request_header  = body["FeCAEReq"]["FeCabReq"].underscore_keys.symbolize_keys
       request_detail  = body["FeCAEReq"]["FeDetReq"]["FECAEDetRequest"].underscore_keys.symbolize_keys
 
-      if result[:errors] then
-          response_detail.merge!( result[:errors] )     
-      end
+      response_detail.merge!( result[:errors] ) if result[:errors]
 
       response_hash = {
         header_result: response_header.delete(:resultado),
