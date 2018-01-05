@@ -30,7 +30,7 @@ module AfipWsfe
   end
 
   def log?
-    AfipWsfe.verbose || ENV["BRAVO_VERBOSE"]
+    AfipWsfe.verbose || ENV["WSFE_VERBOSE"]
   end
   
   def remove_token

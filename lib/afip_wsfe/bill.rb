@@ -56,10 +56,10 @@ module AfipWsfe
 
     def exchange_rate
       return 1 if moneda == :peso
-      response = client.call :fe_param_get_cotizacion do
+      savon_response = client.call :fe_param_get_cotizacion do
         body.merge!({"MonId" => AfipWsfe::MONEDAS[moneda][:codigo]})
       end
-      response.to_hash[:fe_param_get_cotizacion_response][:fe_param_get_cotizacion_result][:result_get][:mon_cotiz].to_f
+      savon_response.to_hash[:fe_param_get_cotizacion_response][:fe_param_get_cotizacion_result][:result_get][:mon_cotiz].to_f
     end
 
     def total
@@ -76,16 +76,15 @@ module AfipWsfe
 
     def authorize
       body = setup_bill
-      response = client.call(:fecae_solicitar, message: body)
-
-      setup_response(response.to_hash)
+      savon_response = client.call(:fecae_solicitar, message: body)
+      setup_response(savon_response.to_hash)
       self.authorized?
     end
 
     def setup_bill
       fecha_emision = (fch_emision || Time.zone.today).strftime('%Y%m%d')
 
-      comp_numero = nro_comprobante || next_bill_number
+      nro_comprobante ||= next_bill_number
 
       array_ivas = Array.new
       self.ivas.each{ |i|
@@ -100,8 +99,8 @@ module AfipWsfe
           "FeCabReq" => AfipWsfe::Bill.header(cbte_type),
           "FeDetReq" => {
             "FECAEDetRequest" => {
-              "CbteDesde"   => comp_numero,
-              "CbteHasta"   => comp_numero,
+              "CbteDesde"   => nro_comprobante,
+              "CbteHasta"   => nro_comprobante,
               "Concepto"    => concept,
               "DocTipo"     => document,
               "DocNro"      => doc_num,
@@ -146,7 +145,7 @@ module AfipWsfe
     end
 
     def authorized?       
-      !response.nil? && response.header_result == "A" && response.detail_result == "A"
+      !response.nil? && response[:header_result] == "A" && response[:detail_result] == "A"
     end
 
     private
@@ -157,16 +156,15 @@ module AfipWsfe
       end
     end
 
-    def setup_response(response)
-      result = response[:fecae_solicitar_response][:fecae_solicitar_result]
+    def setup_response(the_response)
+      result = the_response[:fecae_solicitar_response][:fecae_solicitar_result]
           
       if not result[:fe_det_resp] or not result[:fe_cab_resp] then 
-          datos = {
+          self.response = {
             errores:       result[:errors],
             header_result: {resultado: "X"},
             observaciones:  nil
           }
-          self.response = (defined?(Struct::ResponseMal) ? Struct::ResponseMal : Struct.new("ResponseMal", *datos.keys)).new(*datos.values)
           return
       end       
 
@@ -178,7 +176,7 @@ module AfipWsfe
 
       response_detail.merge!( result[:errors] ) if result[:errors]
 
-      response_hash = {
+      self.response = {
         header_result: response_header.delete(:resultado),
         authorized_on: response_header.delete(:fch_proceso),
         detail_result: response_detail.delete(:resultado),
@@ -193,8 +191,6 @@ module AfipWsfe
         observaciones: response_detail.delete(:observaciones),
         errores:       response_detail.delete(:err)
       }.merge!(request_header).merge!(request_detail)
-
-      self.response = (defined?(Struct::Response) ? Struct::Response : Struct.new("Response", *response_hash.keys)).new(*response_hash.values)
     end
   end
 end
