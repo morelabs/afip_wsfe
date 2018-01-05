@@ -88,11 +88,11 @@ module AfipWsfe
   # This hash keeps the set of urls for wsaa and wsfe for production and testing envs
   URLS = {
     test: {
-      wsaa: 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms',
+      wsaa: 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms?wsdl',
       wsfe: 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL'
     },
     production: {
-      wsaa: 'https://wsaa.afip.gov.ar/ws/services/LoginCms',
+      wsaa: 'https://wsaa.afip.gov.ar/ws/services/LoginCms?wsdl',
       wsfe: 'https://servicios1.afip.gov.ar/wsfev1/service.asmx'
     }
   }
