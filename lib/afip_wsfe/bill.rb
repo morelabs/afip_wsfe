@@ -41,6 +41,19 @@ module AfipWsfe
       AfipWsfe::BILL_TYPE[AfipWsfe.own_iva_cond][iva_cond] || raise(NullOrInvalidAttribute.new, "Please choose a valid document type.")
     end
 
+    def concept
+      AfipWsfe::CONCEPTOS[concepto] || raise(NullOrInvalidAttribute.new, "Please choose a valid concept.")
+    end
+
+    def document
+      AfipWsfe::DOCUMENTOS[documento] || raise(NullOrInvalidAttribute.new, "Please choose a valid document.")
+    end
+
+    def currency
+      raise(NullOrInvalidAttribute.new, "Please choose a valid currency.") unless AfipWsfe::MONEDAS[moneda]
+      AfipWsfe::MONEDAS[moneda][:codigo]
+    end
+
     def exchange_rate
       return 1 if moneda == :peso
       response = client.call :fe_param_get_cotizacion do
@@ -89,12 +102,12 @@ module AfipWsfe
             "FECAEDetRequest" => {
               "CbteDesde"   => comp_numero,
               "CbteHasta"   => comp_numero,
-              "Concepto"    => AfipWsfe::CONCEPTOS[concepto],
-              "DocTipo"     => AfipWsfe::DOCUMENTOS[documento],
+              "Concepto"    => concept,
+              "DocTipo"     => document,
               "DocNro"      => doc_num,
               "CbteFch"     => fecha_emision,
               "ImpTotConc"  => 0.00,
-              "MonId"       => AfipWsfe::MONEDAS[moneda][:codigo],
+              "MonId"       => currency,
               "MonCotiz"    => exchange_rate,
               "ImpOpEx"     => 0.00,
               "ImpTrib"     => 0.00,
