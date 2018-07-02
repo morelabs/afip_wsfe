@@ -28,6 +28,7 @@ Gem::Specification.new do |s|
     "README.rdoc",
     "Rakefile",
     "VERSION",
+    "afip_wsfe.gemspec",
     "lib/afip_wsfe.rb",
     "lib/afip_wsfe/auth_data.rb",
     "lib/afip_wsfe/authorizer.rb",
@@ -52,12 +53,14 @@ Gem::Specification.new do |s|
       s.add_development_dependency(%q<bundler>.freeze, ["~> 1.0"])
       s.add_development_dependency(%q<juwelier>.freeze, [">= 0"])
       s.add_development_dependency(%q<simplecov>.freeze, [">= 0"])
+      s.add_runtime_dependency(%q<savon>.freeze, ["~> 2.11.0"])
     else
       s.add_dependency(%q<shoulda>.freeze, [">= 0"])
       s.add_dependency(%q<rdoc>.freeze, ["~> 3.12"])
       s.add_dependency(%q<bundler>.freeze, ["~> 1.0"])
       s.add_dependency(%q<juwelier>.freeze, [">= 0"])
       s.add_dependency(%q<simplecov>.freeze, [">= 0"])
+      s.add_dependency(%q<savon>.freeze, ["~> 2.11.0"])
     end
   else
     s.add_dependency(%q<shoulda>.freeze, [">= 0"])
@@ -65,6 +68,7 @@ Gem::Specification.new do |s|
     s.add_dependency(%q<bundler>.freeze, ["~> 1.0"])
     s.add_dependency(%q<juwelier>.freeze, [">= 0"])
     s.add_dependency(%q<simplecov>.freeze, [">= 0"])
+    s.add_dependency(%q<savon>.freeze, ["~> 2.11.0"])
   end
 end
 
