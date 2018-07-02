@@ -22,6 +22,7 @@ Juwelier::Tasks.new do |gem|
   gem.email = "pakerimus@gmail.com"
   gem.authors = ["Paco Moreno"]
   # dependencies defined in Gemfile
+  gem.add_dependency "savon", '~> 2.11.0'
 end
 Juwelier::RubygemsDotOrgTasks.new
 
