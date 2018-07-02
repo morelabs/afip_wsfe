@@ -67,7 +67,7 @@ module AfipWsfe
 
     def call_web_service
       body = { "ns1:in0" => @cms }
-      @response = client.call :login_cms, message: body
+      @response = @client.call :login_cms, message: body
       @performed = true
     end
 
