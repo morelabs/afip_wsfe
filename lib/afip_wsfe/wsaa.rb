@@ -5,45 +5,23 @@ module AfipWsfe
   class Wsaa
 
     def initialize(url=nil)
-      AfipWsfe.environment ||= :test
-      @client = Savon.client(
-        wsdl:  AfipWsfe::URLS[AfipWsfe.environment][:wsaa],
-        namespaces: {
-          "xmlns:soapenv" => "http://schemas.xmlsoap.org/soap/envelope/",
-          "xmlns:ar" => "http://ar.gov.afip.dif.FEV1/"
-        },
-        log:       AfipWsfe.log?,
-        log_level: AfipWsfe.log_level || :debug,
-        ssl_verify_mode: :none,
-        read_timeout: 90,
-        open_timeout: 90,
-        headers: {
-          "Accept-Encoding" => "gzip, deflate",
-          "Connection" => "Keep-Alive"
-        },
-        convert_request_keys_to: :none
-      )
-
-      @cms  = nil
-      @performed = false
+      @client = AfipWsfe::Client.new(false)
+      @endpoint = :wsaa
       @response = nil
+      @status = false
     end
 
     def login
+      raise "Ruta del archivo de llave privada no declarado" unless AfipWsfe.pkey.present?
+      raise "Ruta del archivo certificado no declarado" unless AfipWsfe.cert.present?
       raise "Archivo de llave privada no encontrado en #{ AfipWsfe.pkey }" unless File.exists?(AfipWsfe.pkey)
       raise "Archivo certificado no encontrado en #{ AfipWsfe.cert }" unless File.exists?(AfipWsfe.cert)
-      build_tra
-      call_web_service
+      @status, @response = @client.call_endpoint @endpoint, :login_cms, {in0: build_tra}
       parse_response
-      status
+      @status
     end
 
-    def status
-      return false unless @performed
-      @response.success?
-    end
-
-    protected
+    private
 
     def build_tra
       now  = Time.zone.now
@@ -60,34 +38,31 @@ module AfipWsfe
         "service" => "wsfe"
       }.to_xml(root: "loginTicketRequest")
 
-      @cms = `echo '#{ tra }' |
-        #{ AfipWsfe.openssl_bin } cms -sign -in /dev/stdin -signer #{ AfipWsfe.cert } -inkey #{ AfipWsfe.pkey } -nodetach -outform der |
-        #{ AfipWsfe.openssl_bin } base64 -e`
-    end
-
-    def call_web_service
-      @response = @client.call :login_cms, message: {in0: @cms}
-      @performed = true
+      pkcs7 = OpenSSL::PKCS7.sign(cert, key, tra)
+      OpenSSL::PKCS7.write_smime(pkcs7).lines[5..-2].join()
     end
 
     def parse_response
-      if status
-        response_hash = Hash.from_xml @response.body[:login_cms_response][:login_cms_return]
-        token = response_hash["loginTicketResponse"]["credentials"]["token"]
-        sign  = response_hash["loginTicketResponse"]["credentials"]["sign"]
-        write_yaml(token, sign)
-      end
+      write_yaml(@response["loginTicketResponse"]["credentials"])
     end
 
-    def write_yaml(token, sign)
-      filename = "/tmp/bravo_#{ AfipWsfe.cuit }_#{ Time.zone.today.strftime('%Y_%m_%d') }.yml"
+    def write_yaml(credentials)
+      filename = AuthData.todays_data_file_name
       content = {
-        token: token,
-        sign: sign
+        token: credentials["token"],
+        sign: credentials["sign"]
       }
       File.open(filename, 'w') { |f|
         f.write content.to_yaml
       }
+    end
+
+    def cert
+      OpenSSL::X509::Certificate.new(File.read(AfipWsfe.cert))
+    end
+
+    def key
+      OpenSSL::PKey::RSA.new(File.read(AfipWsfe.pkey))
     end
   end
 end

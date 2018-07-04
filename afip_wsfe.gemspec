@@ -31,7 +31,6 @@ Gem::Specification.new do |s|
     "afip_wsfe.gemspec",
     "lib/afip_wsfe.rb",
     "lib/afip_wsfe/auth_data.rb",
-    "lib/afip_wsfe/authorizer.rb",
     "lib/afip_wsfe/bill.rb",
     "lib/afip_wsfe/constants.rb",
     "lib/afip_wsfe/version.rb",

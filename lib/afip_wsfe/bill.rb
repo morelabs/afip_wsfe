@@ -1,39 +1,22 @@
 module AfipWsfe
   class Bill
-    attr_reader :client, :base_imp, :total
-    attr_accessor :net, :doc_num, :iva_cond, :documento, :concepto, :moneda,
-                  :due_date, :fch_serv_desde, :fch_serv_hasta, :fch_emision,
-                  :body, :response, :ivas, :nro_comprobante
+    attr_reader :base_imp, :total
+    attr_accessor :fch_emision, :fch_vto_pago, :fch_serv_desde, :fch_serv_hasta,
+                  :nro_comprobante, :doc_num, :net, 
+                  :iva_cond, :documento, :concepto, :moneda, :ivas, 
+                  :body, :response
 
     def initialize(attrs = {})
-      AfipWsfe.environment ||= :test
-      AfipWsfe::AuthData.fetch
+      @client   = AfipWsfe::Client.new
+      @endpoint = :wsfe
+      @response = nil
+      @status   = false
 
-      @client = Savon.client(
-        wsdl:  AfipWsfe::URLS[AfipWsfe.environment][:wsfe],
-        namespaces: {
-          "xmlns:soapenv" => "http://schemas.xmlsoap.org/soap/envelope/",
-          "xmlns:ar" => "http://ar.gov.afip.dif.FEV1/"
-        },
-        log:       AfipWsfe.log?,
-        log_level: AfipWsfe.log_level || :debug,
-        ssl_cert_key_file: AfipWsfe.pkey,
-        ssl_cert_file:     AfipWsfe.cert,
-        ssl_verify_mode: :none,
-        read_timeout: 90,
-        open_timeout: 90,
-        headers: {
-          "Accept-Encoding" => "gzip, deflate",
-          "Connection" => "Keep-Alive"
-        }
-      )
-
-      @body           = {"Auth" => AfipWsfe.auth_hash}
-      @net            = attrs[:net] || 0
-      self.documento  = attrs[:documento] || AfipWsfe.default_documento
-      self.moneda     = attrs[:moneda]    || AfipWsfe.default_moneda
+      self.net        = attrs[:net] || 0
       self.iva_cond   = attrs[:iva_cond]  || :responsable_monotributo
+      self.documento  = attrs[:documento] || AfipWsfe.default_documento
       self.concepto   = attrs[:concepto]  || AfipWsfe.default_concepto
+      self.moneda     = attrs[:moneda]    || AfipWsfe.default_moneda
       self.ivas       = attrs[:ivas]      || Array.new # [ 1, 100.00, 10.50 ], [ 2, 100.00, 21.00 ] 
     end
 
@@ -56,10 +39,8 @@ module AfipWsfe
 
     def exchange_rate
       return 1 if moneda == :peso
-      savon_response = client.call :fe_param_get_cotizacion do
-        body.merge!({"MonId" => AfipWsfe::MONEDAS[moneda][:codigo]})
-      end
-      savon_response.to_hash[:fe_param_get_cotizacion_response][:fe_param_get_cotizacion_result][:result_get][:mon_cotiz].to_f
+      @status, @response = @client.call_endpoint @endpoint, :fe_param_get_cotizacion, {"MonId" => AfipWsfe::MONEDAS[moneda][:codigo]}
+      @response[:result_get][:mon_cotiz].to_f
     end
 
     def total
@@ -75,16 +56,34 @@ module AfipWsfe
     end
 
     def authorize
-      body = setup_bill
-      savon_response = client.call(:fecae_solicitar, message: body)
-      setup_response(savon_response.to_hash)
+      setup_bill
+      @status, @response = @client.call_endpoint(@endpoint, :fecae_solicitar, self.body)
+      setup_response
       self.authorized?
     end
 
-    def setup_bill
-      fecha_emision = (fch_emision || Time.zone.today).strftime('%Y%m%d')
+    def last_bill_number
+      params = {"PtoVta" => AfipWsfe.sale_point, "CbteTipo" => cbte_type}
+      @status, @response = @client.call_endpoint @endpoint, :fe_comp_ultimo_autorizado, params
+      @response[:cbte_nro].to_i
+    end
 
-      nro_comprobante ||= next_bill_number
+    def next_bill_number
+      last_bill_number + 1
+    end
+
+    def authorized?       
+      @response && @response[:header_result] == "A"
+    end
+
+    private
+
+    def setup_bill
+      today = Time.zone.today.strftime('%Y%m%d')
+
+      fecha_emision = (fch_emision || today)
+
+      self.nro_comprobante ||= next_bill_number
 
       array_ivas = Array.new
       self.ivas.each{ |i|
@@ -96,7 +95,11 @@ module AfipWsfe
 
       fecaereq = {
         "FeCAEReq" => {
-          "FeCabReq" => AfipWsfe::Bill.header(cbte_type),
+          "FeCabReq" => {
+            "CantReg" => "1",
+            "CbteTipo" => cbte_type,
+            "PtoVta" => AfipWsfe.sale_point
+          },
           "FeDetReq" => {
             "FECAEDetRequest" => {
               "CbteDesde"   => nro_comprobante,
@@ -119,7 +122,7 @@ module AfipWsfe
       detail = fecaereq["FeCAEReq"]["FeDetReq"]["FECAEDetRequest"]
 
       if AfipWsfe.own_iva_cond == :responsable_monotributo
-        detail["ImpTotal"]  = net.to_f
+        detail["ImpTotal"]  = net.to_f.round(2)
       else
         detail["ImpIVA"]    = iva_sum
         detail["ImpTotal"]  = total.to_f.round(2)
@@ -129,52 +132,30 @@ module AfipWsfe
       unless concepto == "Productos" # En "Productos" ("01"), si se mandan estos parámetros la afip rechaza.
         detail.merge!({"FchServDesde" => fch_serv_desde || today,
                       "FchServHasta"  => fch_serv_hasta || today,
-                      "FchVtoPago"    => due_date       || today})
+                      "FchVtoPago"    => fch_vto_pago   || today})
       end
 
-      body.merge!(fecaereq)
+      self.body = fecaereq
     end
 
-    def next_bill_number
-      var = {"Auth" => AfipWsfe.auth_hash,"PtoVta" => AfipWsfe.sale_point, "CbteTipo" => cbte_type}
-      resp = client.call :fe_comp_ultimo_autorizado do
-        message(var)
-      end
-
-      resp.to_hash[:fe_comp_ultimo_autorizado_response][:fe_comp_ultimo_autorizado_result][:cbte_nro].to_i + 1
-    end
-
-    def authorized?       
-      !response.nil? && response[:header_result] == "A" && response[:detail_result] == "A"
-    end
-
-    private
-
-    class << self
-      def header(cbte_type)#todo sacado de la factura
-        {"CantReg" => "1", "CbteTipo" => cbte_type, "PtoVta" => AfipWsfe.sale_point}
-      end
-    end
-
-    def setup_response(the_response)
-      result = the_response[:fecae_solicitar_response][:fecae_solicitar_result]
-          
-      if not result[:fe_det_resp] or not result[:fe_cab_resp] then 
-          self.response = {
-            errores:       result[:errors],
+    def setup_response
+      if not @response[:fe_det_resp] or not @response[:fe_cab_resp]
+          @response = {
+            errores:       @response[:errors],
             header_result: {resultado: "X"},
+            detail_result: {resultado: "X"},
             observaciones:  nil
           }
           return
       end       
 
-      response_header = result[:fe_cab_resp]
-      response_detail = result[:fe_det_resp][:fecae_det_response]
+      response_header = @response[:fe_cab_resp]
+      response_detail = @response[:fe_det_resp][:fecae_det_response]
 
-      request_header  = body["FeCAEReq"]["FeCabReq"].underscore_keys.symbolize_keys
-      request_detail  = body["FeCAEReq"]["FeDetReq"]["FECAEDetRequest"].underscore_keys.symbolize_keys
+      request_header  = body["FeCAEReq"]["FeCabReq"].transform_keys { |key| key.to_s.downcase.to_sym }
+      request_detail  = body["FeCAEReq"]["FeDetReq"]["FECAEDetRequest"].transform_keys { |key| key.to_s.downcase.to_sym }
 
-      response_detail.merge!( result[:errors] ) if result[:errors]
+      response_detail.merge!( @response[:errors] ) if @response[:errors]
 
       self.response = {
         header_result: response_header.delete(:resultado),
