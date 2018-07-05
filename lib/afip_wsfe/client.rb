@@ -16,7 +16,7 @@ module AfipWsfe
       ).call(savon_method, message: params.merge(@auth))
 
       response = result.body[:"#{savon_method}_response"][return_key]
-      Hash.from_xml response if endpoint == :wsaa
+      response = Hash.from_xml response if endpoint == :wsaa
 
       [result.success?, response]
     end
