@@ -11,7 +11,7 @@ Gem::Specification.new do |s|
   s.required_rubygems_version = Gem::Requirement.new(">= 0".freeze) if s.respond_to? :required_rubygems_version=
   s.require_paths = ["lib".freeze]
   s.authors = ["Paco Moreno".freeze]
-  s.date = "2018-07-21"
+  s.date = "2018-08-03"
   s.description = "Wrapper para usar web service de factura electr\u{f3}nica de AFIP".freeze
   s.email = "pakerimus@gmail.com".freeze
   s.extra_rdoc_files = [
