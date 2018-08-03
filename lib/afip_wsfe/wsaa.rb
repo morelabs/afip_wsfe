@@ -58,11 +58,19 @@ module AfipWsfe
     end
 
     def cert
-      OpenSSL::X509::Certificate.new(File.read(AfipWsfe.cert))
+      OpenSSL::X509::Certificate.new(read_content(AfipWsfe.cert))
     end
 
     def key
-      OpenSSL::PKey::RSA.new(File.read(AfipWsfe.pkey))
+      OpenSSL::PKey::RSA.new(read_content(AfipWsfe.pkey))
+    end
+
+    def read_content(my_file)
+      if AfipWsfe.storage == :file
+        File.read my_file
+      else
+        my_file
+      end
     end
   end
 end

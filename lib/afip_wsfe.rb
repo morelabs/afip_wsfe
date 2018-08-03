@@ -22,7 +22,7 @@ module AfipWsfe
   extend self
 
   attr_accessor :environment, :verbose, :log_level,
-                :pkey, :cert, :storage
+                :pkey, :cert, :storage,
                 :cuit, :own_iva_cond, :sale_point,
                 :default_documento, :default_concepto, :default_moneda
 
@@ -39,7 +39,7 @@ module AfipWsfe
   end
 
   def enabled?
-    if self.storage == :file 
+    if self.storage == :file
       File.exists?(AfipWsfe.pkey || "") && File.exists?(AfipWsfe.cert || "")
     else
       AfipWsfe.pkey.present? && AfipWsfe.cert.present?
