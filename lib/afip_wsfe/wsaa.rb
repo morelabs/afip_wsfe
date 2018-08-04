@@ -12,10 +12,6 @@ module AfipWsfe
     end
 
     def login
-      raise "Ruta del archivo de llave privada no declarado" unless AfipWsfe.pkey.present?
-      raise "Ruta del archivo certificado no declarado" unless AfipWsfe.cert.present?
-      raise "Archivo de llave privada no encontrado en #{ AfipWsfe.pkey }" unless File.exists?(AfipWsfe.pkey)
-      raise "Archivo certificado no encontrado en #{ AfipWsfe.cert }" unless File.exists?(AfipWsfe.cert)
       @status, @response = @client.call_endpoint @endpoint, :login_cms, {in0: build_tra}
       parse_response
       @status
@@ -66,6 +62,9 @@ module AfipWsfe
     end
 
     def read_content(my_file)
+      raise(NullOrInvalidAttribute.new, "No está definido el storage de las keys") unless AfipWsfe.storage
+      raise(NullOrInvalidAttribute.new, "No se han proporcionado las keys necesarias") unless my_file
+      
       if AfipWsfe.storage == :file
         File.read my_file
       else
