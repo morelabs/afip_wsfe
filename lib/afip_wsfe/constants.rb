@@ -24,6 +24,30 @@ module AfipWsfe
     '64'=>'Liquidacion B'
   }
 
+  CBTE_LETRA = {
+    '01'=>'A',
+    '02'=>'A',
+    '03'=>'A',
+    '04'=>'A',
+    '05'=>'A',
+    '06'=>'B',
+    '07'=>'B',
+    '08'=>'B',
+    '09'=>'B',
+    '10'=>'B',
+    '11'=>'C',
+    '12'=>'C',
+    '13'=>'C',
+    '34'=>'A',
+    '35'=>'B',
+    '39'=>'A',
+    '40'=>'B',
+    '60'=>'A',
+    '61'=>'B',
+    '63'=>'A',
+    '64'=>'B'
+  }
+
   # Name to code mapping for Sale types.
   CONCEPTOS = {
     'Productos' => 1,
@@ -49,11 +73,11 @@ module AfipWsfe
 
   # Currency code and names hash identified by a symbol
   MONEDAS = {
-    :peso  => { codigo: 'PES', nombre: 'Pesos Argentinos' },
-    :dolar => { codigo: 'DOL', nombre: 'Dolar Estadounidense' },
-    :real  => { codigo: '012', nombre: 'Real' },
-    :euro  => { codigo: '060', nombre: 'Euro' },
-    :oro   => { codigo: '049', nombre: 'Gramos de Oro Fino' }
+    peso:  { codigo: 'PES', nombre: 'Pesos Argentinos' },
+    dolar: { codigo: 'DOL', nombre: 'Dolar Estadounidense' },
+    real:  { codigo: '012', nombre: 'Real' },
+    euro:  { codigo: '060', nombre: 'Euro' },
+    oro:   { codigo: '049', nombre: 'Gramos de Oro Fino' }
   }
 
   # Tax percentage and codes according to each iva combination
@@ -65,23 +89,23 @@ module AfipWsfe
   ]
 
   BILL_TYPE = {
-    :responsable_inscripto => {
-      :responsable_inscripto => '01',
-      :consumidor_final => '06',
-      :exento => '06',
-      :responsable_monotributo => '06',
-      :nota_credito_a => '03',
-      :nota_credito_b => '08',
-      :nota_debito_a => '02',
-      :nota_debito_b => '07'
+    responsable_inscripto: {
+      responsable_inscripto: '01',
+      consumidor_final: '06',
+      exento: '06',
+      responsable_monotributo: '06',
+      nota_credito_a: '03',
+      nota_credito_b: '08',
+      nota_debito_a: '02',
+      nota_debito_b: '07'
     },
-    :responsable_monotributo => {
-      :responsable_inscripto => '11',
-      :consumidor_final => '11',
-      :exento => '11',
-      :responsable_monotributo => '11',
-      :nota_credito_c => '13',
-      :nota_debito_c => '12'
+    responsable_monotributo: {
+      responsable_inscripto: '11',
+      consumidor_final: '11',
+      exento: '11',
+      responsable_monotributo: '11',
+      nota_credito_c: '13',
+      nota_debito_c: '12'
     }
   }
   
