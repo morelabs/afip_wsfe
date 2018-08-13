@@ -2,7 +2,7 @@ module AfipWsfe
   class Bill
     attr_reader :base_imp, :total
     attr_accessor :fch_emision, :fch_vto_pago, :fch_serv_desde, :fch_serv_hasta,
-                  :nro_comprobante, :doc_num, :net, 
+                  :tipo_comprobante, :nro_comprobante, :doc_num, :net, 
                   :iva_cond, :documento, :concepto, :moneda, :ivas, 
                   :body, :response
 
@@ -63,7 +63,14 @@ module AfipWsfe
     end
 
     def last_bill_number
-      params = {"PtoVta" => AfipWsfe.sale_point, "CbteTipo" => cbte_type}
+      raise(NullOrInvalidAttribute.new, "No está definido el punto de venta.") unless AfipWsfe.sale_point
+      raise(NullOrInvalidAttribute.new, "No está definido el tipo de comprobante.") unless tipo_comprobante
+      
+      params = {
+        "PtoVta" => AfipWsfe.sale_point,
+        "CbteTipo" => tipo_comprobante
+      }
+      
       @status, @response = @client.call_endpoint @endpoint, :fe_comp_ultimo_autorizado, params
       @response[:cbte_nro].to_i
     end
@@ -83,6 +90,7 @@ module AfipWsfe
 
       fecha_emision = (fch_emision || today)
 
+      self.tipo_comprobante ||= cbte_type
       self.nro_comprobante ||= next_bill_number
 
       array_ivas = Array.new
@@ -97,7 +105,7 @@ module AfipWsfe
         "FeCAEReq" => {
           "FeCabReq" => {
             "CantReg" => "1",
-            "CbteTipo" => cbte_type,
+            "CbteTipo" => tipo_comprobante,
             "PtoVta" => AfipWsfe.sale_point
           },
           "FeDetReq" => {
